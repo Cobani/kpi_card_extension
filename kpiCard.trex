@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.ilyascoban.vizext.kpicard" extension-version="2.0.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name"/>
+    <description>KPI card: latest value of a measure by date, % / pp change vs the previous date, and a trend line with tooltips.</description>
+    <author name="ilyas coban" email="ilyas.cbn@gmail.com" organization="ilyas coban" website="https://www.linkedin.com/in/ilyascoban/"/>
+    <min-api-version>1.11</min-api-version>
+    <source-location>
+      <url>https://extension.ilyascoban.com/kpi-card/index.html</url>
+    </source-location>
+    <icon/>
+
+    <!-- Adds the "Format Extension" button that opens configure.html -->
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+
+    <encoding id="value">
+      <display-name resource-id="value-name">Measure</display-name>
+      <data-spec>
+        <data-type>numeric</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>continuous-measure</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <encoding-icon token="metric"/>
+      <tooltip resource-id="value-tooltip">The metric. Big number = its latest value by Date; change = latest vs previous date.</tooltip>
+    </encoding>
+
+    <encoding id="date">
+      <display-name resource-id="date-name">Date</display-name>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="4"/>
+      <tooltip resource-id="date-tooltip">Any date level: year, quarter, month, week, day or exact date. Add several (e.g. YEAR + MONTH) to combine.</tooltip>
+    </encoding>
+  </worksheet-extension>
+
+  <resources>
+    <resource id="name"><text locale="en_US">KPI Card</text></resource>
+    <resource id="value-name"><text locale="en_US">Measure</text></resource>
+    <resource id="value-tooltip"><text locale="en_US">The metric. Big number = its latest value by Date; change = latest vs previous date.</text></resource>
+    <resource id="date-name"><text locale="en_US">Date</text></resource>
+    <resource id="date-tooltip"><text locale="en_US">Any date level: year, quarter, month, week, day or exact date. Add several (e.g. YEAR + MONTH) to combine.</text></resource>
+  </resources>
+</manifest>

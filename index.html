@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KPI Card</title>
+    <link rel="stylesheet" href="./fonts/fonts.css" />
+    <link rel="stylesheet" href="./card.css" />
+    <script src="./icons.js"></script>
+    <script src="./config.js"></script>
+    <script src="./card.js"></script>
+  </head>
+
+  <body>
+    <div id="card" class="card is-empty">
+      <div class="head">
+        <div id="icon" class="icon" aria-hidden="true"></div>
+        <div id="title" class="title"></div>
+        <div id="explanation" class="explanation"></div>
+      </div>
+
+      <div class="metric">
+        <div id="metric-row" class="metric-row">
+          <div id="number" class="number">
+            <span id="unit-pre" class="unit unit--pre"></span><span id="value" class="value"></span><span id="unit-post" class="unit unit--post"></span>
+          </div>
+          <div id="change" class="change" hidden>
+            <span id="change-arrow" class="change-arrow"></span><span id="change-text" class="change-text"></span>
+          </div>
+        </div>
+      </div>
+
+      <div id="bottom" class="bottom">
+        <svg id="chart" class="chart" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div id="bottom-text" class="bottom-text"></div>
+      </div>
+
+      <div id="hint" class="hint"></div>
+    </div>
+
+    <div id="tooltip" class="tooltip" role="tooltip"></div>
+
+    <script>
+      // Loads the Tableau Extensions API: vendored copy first, CDN fallback.
+      (function () {
+        var SOURCES = [
+          './lib/tableau.extensions.1.latest.js',
+          'https://cdn.jsdelivr.net/gh/tableau/extensions-api@main/lib/tableau.extensions.1.latest.js'
+        ];
+        function load (i) {
+          if (i >= SOURCES.length) {
+            document.getElementById('hint').textContent =
+              'Could not load the Tableau Extensions API library.';
+            return;
+          }
+          var s = document.createElement('script');
+          s.src = SOURCES[i];
+          s.onload = function () { window.KpiCard.init(); };
+          s.onerror = function () { load(i + 1); };
+          document.head.appendChild(s);
+        }
+        if (window.tableau && window.tableau.extensions) {
+          window.KpiCard.init();
+        } else {
+          load(0);
+        }
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KPI Card — Format</title>
+    <link rel="stylesheet" href="./fonts/fonts.css" />
+    <link rel="stylesheet" href="./configure.css" />
+  </head>
+
+  <body>
+    <nav class="tabs" id="tabs" role="tablist"></nav>
+
+    <main class="body" id="panels"></main>
+
+    <footer class="footer">
+      <button class="btn" id="reset-tab" type="button" title="Restore Figma defaults for this tab">Reset tab</button>
+      <span class="status" id="status"></span>
+      <button class="btn" id="cancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="done" type="button">Done</button>
+    </footer>
+
+    <script src="./icons.js"></script>
+    <script src="./config.js"></script>
+    <script src="./configure.js"></script>
+    <script>
+      (function () {
+        var SOURCES = [
+          './lib/tableau.extensions.1.latest.js',
+          'https://cdn.jsdelivr.net/gh/tableau/extensions-api@main/lib/tableau.extensions.1.latest.js'
+        ];
+        function load (i) {
+          if (i >= SOURCES.length) return;
+          var s = document.createElement('script');
+          s.src = SOURCES[i];
+          s.onload = function () { window.KpiCardConfigure.init(); };
+          s.onerror = function () { load(i + 1); };
+          document.head.appendChild(s);
+        }
+        if (window.tableau && window.tableau.extensions) {
+          window.KpiCardConfigure.init();
+        } else {
+          load(0);
+        }
+      })();
+    </script>
+  </body>
+</html>

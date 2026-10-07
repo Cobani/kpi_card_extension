@@ -1,0 +1,44 @@
+/* Lato 2.0 (SIL Open Font License) — bundled so the card matches Figma even on
+   machines without Lato installed. An installed copy is preferred when present. */
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Lato Regular"), local("Lato-Regular"), url("./Lato-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Lato";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Lato Italic"), local("Lato-Italic"), url("./Lato-Italic.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local("Lato Medium"), local("Lato-Medium"), url("./Lato-Medium.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Lato";
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+  src: local("Lato Medium Italic"), local("Lato-MediumItalic"), url("./Lato-MediumItalic.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local("Lato Bold"), local("Lato-Bold"), url("./Lato-Bold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Lato";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: local("Lato Bold Italic"), local("Lato-BoldItalic"), url("./Lato-BoldItalic.ttf") format("truetype");
+}
