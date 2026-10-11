@@ -217,6 +217,7 @@ body {
 
 .tt-date { color: #68707d; margin-bottom: 2px; }
 .tt-value { font-weight: 700; font-size: 14px; }
+.tt-mtd { color: #68707d; }
 .tt-change { margin-top: 3px; }
 .tt-abs { opacity: 0.85; }
 .tt-note { color: #68707d; font-size: 11px; }

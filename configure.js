@@ -267,17 +267,23 @@
 
   function buildTextTab (p) {
     var g1 = group(p, 'Title');
+    g1.appendChild(checkboxRow('Show title', 'title.show'));
     g1.appendChild(textRow('Title', 'title.text', 'Defaults to the Big number field name'));
+    g1.appendChild(segRow('Alignment', 'title.align', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']]));
+    g1.appendChild(h('div', { className: 'help', textContent: 'The explanation text follows the same alignment.' }));
     fontRows(g1, 'title');
 
     var g2 = group(p, 'Explanation text');
     g2.appendChild(checkboxRow('Show explanation', 'explanation.show'));
+    g2.appendChild(checkboxRow('Keep space when empty', 'explanation.reserveSpace'));
+    g2.appendChild(h('div', { className: 'help', textContent: 'Reserves the explanation line even when it is empty or hidden, so big numbers line up across cards on a dashboard.' }));
     g2.appendChild(textRow('Text', 'explanation.text', 'e.g. % Top-Up vs Local Transfer'));
     fontRows(g2, 'explanation', true);
   }
 
   function buildNumberTab (p) {
     var g1 = group(p, 'Value');
+    g1.appendChild(checkboxRow('Show big number', 'number.show'));
     var fmtRow = selectRow('Number format', 'number.scale', [
       ['dynamic', 'Dynamic (K / M / B)'], ['K', 'Thousands (K)'], ['M', 'Millions (M)'],
       ['B', 'Billions (B)'], ['none', 'Full number'],
@@ -303,7 +309,21 @@
   }
 
   function buildChangeTab (p) {
-    var g1 = group(p, 'Latest vs previous date');
+    var g0 = group(p, 'Comparison');
+    g0.appendChild(segRow('Compare with', 'change.compareTo',
+      [['previous', 'Previous date'], ['prevMonth', 'Same day last month']]));
+    g0.appendChild(segRow('Period', 'change.period', [['day', 'Single day'], ['mtd', 'Month to date']], function () { buildTabs(); }));
+    if (cfg.change.period === 'mtd') {
+      g0.appendChild(selectRow('MTD roll-up', 'change.mtdAgg', [['sum', 'Sum of days'], ['avg', 'Average of days']]));
+      g0.appendChild(checkboxRow('Big number shows MTD', 'change.mtdNumber'));
+    }
+    g0.appendChild(h('div', {
+      className: 'help',
+      textContent: 'Same day last month: 11 Oct vs 11 Sep (31 Mar vs 28/29 Feb). Month to date: 1–11 Oct vs 1–11 Sep, or vs MTD at the previous date. ' +
+        'Both need a real date on the Date tile (exact date or DAY / MONTH as a date), not date parts. Use Sum for flows (volumes, counts) and Average for balances and ratios.'
+    }));
+
+    var g1 = group(p, 'Change');
     g1.appendChild(checkboxRow('Show change', 'change.show'));
     g1.appendChild(segRow('Type', 'change.type', [['percent', '% change'], ['pp', 'pp change']], function () { buildTabs(); }));
     var pp = checkboxRow('Metric is a 0–1 ratio', 'change.ppFromRatio');
@@ -337,7 +357,7 @@
       g2.appendChild(rangeRow('Fill at top', 'bottom.fillOpacity', 0, 100, 1, '%'));
       g2.appendChild(numberRow('Line width (px)', 'bottom.lineWidth', 0.5, 6, 0.1));
       g2.appendChild(numberRow('Points shown', 'bottom.points', 0, 5000, 1));
-      g2.appendChild(h('div', { className: 'help', textContent: 'The latest N dates at the level of your Date field (30 days, 12 months, ...). 0 shows all.' }));
+      g2.appendChild(h('div', { className: 'help', textContent: 'Only the last N days / weeks / months at the level of your Date field: 30 on a day-level date shows the latest date and the 29 calendar days before it, even when some days have no data. 0 shows all.' }));
       g2.appendChild(checkboxRow('Tooltip on hover', 'bottom.showTooltip'));
       g2.appendChild(rangeRow('Chart height', 'bottom.heightPct', 15, 70, 1, '%'));
     } else if (cfg.bottom.mode === 'text') {

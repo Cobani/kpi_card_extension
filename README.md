@@ -32,9 +32,9 @@ Then in Tableau Desktop (2024.2+): on the Marks card, open the mark type dropdow
 | **Measure** | the metric | everything: big number, change, trend line |
 | **Date** | any date level — YEAR, QUARTER, MONTH, WEEK, DAY, exact date — or up to 4 combined (e.g. YEAR + MONTH) | ordering by date |
 
-- **Big number** = the measure's value at the latest date.
-- **% / pp change** = latest date vs the date before it.
-- **Trend line** = the latest *N* dates (30 by default), at whatever level the Date field is at. Hover a point for its date, value, and change vs the previous date.
+- **Big number** = the measure's value at the latest date (or month to date, when the change uses MTD).
+- **% / pp change** = latest date vs the date before it, or vs the same day last month — as single days or month to date.
+- **Trend line** = only the last *N* days / weeks / months (30 by default) at the Date field's level, counted on the calendar, so gaps never pull in older dates. Hover a point for its date, the full (unabbreviated) value, and its change.
 
 The Figma defaults are applied automatically. Enter the title and explanation text in the Format dialog. If you leave
 the title empty, the card uses the Measure field name.
@@ -49,10 +49,10 @@ Figma defaults for that tab.
 | Tab | Options |
 | --- | --- |
 | Icon | show/hide · **78 built-in icons**: 47 icons from the Figma page *Custom Icons & Assets* (onboarding, chart, dashboard, logos, other) plus basic shapes and outline icons · **Tableau shapes** (palette picker) · upload PNG/SVG/JPG/GIF · **size** 12–96 px on the longer side (default 24, as in Figma). Larger icons sit beside both the title and the explanation. |
-| Title & text | title text, font, size, weight, colour, italic · explanation on/off, text and the same formatting |
-| Big number | K / M / B / Dynamic / full / **Percentage** / **Percentage dynamic (K/M/B %)** / workbook format · *Metric is a 0–1 ratio* for the percentage formats · decimals · unit text, position, size · font, size, weight, colour · shrink-to-fit |
-| % Change | on/off · % or pp · decimals · positive/negative/no-change colours · "Increase is good" (untick to swap the colours) · font |
-| Bottom | Trend line / Change text / Nothing · straight or smooth line · chart colour, gradient strength, line width, points shown, tooltip on/off, height · period word, decimals, sign |
+| Title & text | title show/hide, text, **alignment** (left / center / right), font, size, weight, colour, italic · explanation on/off, **keep space when empty** (on by default, so big numbers line up across cards), text and the same formatting |
+| Big number | show/hide · K / M / B / Dynamic / full / **Percentage** / **Percentage dynamic (K/M/B %)** / workbook format · *Metric is a 0–1 ratio* for the percentage formats · decimals · unit text, position, size (default 24 px) · font, size, weight, colour · shrink-to-fit |
+| % Change | compare with **previous date** or **same day last month** · **single day** or **month to date** (sum or average of days; big number can show MTD) · on/off · % or pp · decimals · positive/negative/no-change colours · "Increase is good" (untick to swap the colours) · font |
+| Bottom | Trend line / Change text / Nothing · smooth (default) or straight line · chart colour, gradient strength, line width, points shown, tooltip on/off, height · period word, decimals, sign |
 | Card | padding · dashed right divider (as in Figma) · background colour and opacity (transparent by default) |
 
 Settings are saved in the workbook, and that includes uploaded and picked icons (stored as small data URLs). They go
@@ -87,7 +87,12 @@ can upload any `.png` file from a Shapes folder.
 
 - **Big number**: `1336040000` with format *M* and 2 decimals shows as `1,336.04M`. *Dynamic* picks K, M or B from the size of the number.
 - **Percentage formats**: the % sign is part of the number, at the same size. With *Metric is a 0–1 ratio* ticked, 0.4523 shows as `45.23%`; unticked, 45.23 shows as `45.23%`. *Percentage dynamic* also abbreviates large values, so 1,336.04 (a ratio) shows as `133.60K%`. Differences between two percentages (in the tooltip and the change text) are shown in percentage points, e.g. `-11.36 pp`.
-- **% change**: `(latest − previous) / |previous|`, where *previous* is the value at the date before the latest. It's hidden when previous is 0.
+- **% change**: `(latest − previous) / |previous|`. It's hidden when previous is 0 or there's nothing to compare with.
+- **Comparison base** (% Change tab):
+  - *Previous date* + *Single day*: the value at the date before the latest.
+  - *Same day last month* + *Single day*: 11 Oct vs 11 Sep. Days that don't exist clamp to the month end (31 Mar vs 28/29 Feb). No value on that day → no change shown.
+  - *Month to date*: 1–11 Oct vs 1–11 Sep (same day last month), or vs MTD as of the previous date. Days are summed (flows) or averaged (balances, ratios).
+  - Same day last month and MTD need real dates on the Date tile (exact date, or DAY/MONTH as a date), not date parts. They read the full data, so they work even when *Points shown* hides last month from the trend line.
 - **pp change**: `latest − previous`. With *Metric is a 0–1 ratio* ticked, the difference is multiplied by 100, so 0.45 vs 0.40 gives `+5.00 pp`.
 - **Arrows**: ↗ when the change is positive, ↘ when negative, → when zero. The colour follows *Increase is good*.
 - **Change text**: `-1,135.8M less than previous period`. It uses the big number's scale and colour, the explanation text's size, and is never italic.

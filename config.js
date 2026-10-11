@@ -49,7 +49,9 @@
       name: ''
     },
     title: {
+      show: true,
       text: '', // empty → the Big number field name
+      align: 'left', // left | center | right
       font: 'Lato',
       size: 16,
       weight: 500, // Lato Medium
@@ -58,6 +60,7 @@
     },
     explanation: {
       show: true,
+      reserveSpace: true, // keep the line even when empty/hidden, so big numbers line up across cards
       text: '',
       font: 'Lato',
       size: 12,
@@ -66,6 +69,7 @@
       italic: true
     },
     number: {
+      show: true,
       font: 'Lato',
       size: 32,
       weight: 700,
@@ -74,13 +78,17 @@
       decimals: 2,
       scale: 'dynamic', // none | K | M | B | dynamic | workbook | percent | percentDynamic
       unit: '',
-      unitSize: 16,
+      unitSize: 24,
       unitPosition: 'suffix', // suffix | prefix
       shrinkToFit: true,
       pctFromRatio: true // percent formats: metric is a 0–1 ratio (0.4523 → 45.23%)
     },
     change: {
       show: true,
+      compareTo: 'previous', // previous (date point before) | prevMonth (same day last month)
+      period: 'day', // day (single day) | mtd (month to date)
+      mtdAgg: 'sum', // sum | avg — how days are rolled up into MTD
+      mtdNumber: true, // MTD: big number shows the MTD value too
       type: 'percent', // percent | pp
       decimals: 2,
       ppFromRatio: true, // pp: metric is a 0–1 ratio, multiply the difference by 100
@@ -95,10 +103,10 @@
     bottom: {
       mode: 'chart', // chart | text | none
       chartColor: '#ED8095',
-      lineStyle: 'straight', // straight (Figma) | smooth
+      lineStyle: 'smooth', // smooth | straight (Figma)
       lineWidth: 0.9,
       fillOpacity: 35, // % opacity of the gradient at the top of the area
-      points: 30, // latest N dates on the trend line (0 = all)
+      points: 30, // last N days/weeks/months… (at the Date level) on the trend line (0 = all)
       showTooltip: true,
       heightPct: 44, // share of card height; Figma: 108 / 245
       textDecimals: 1,

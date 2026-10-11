@@ -9,9 +9,10 @@
  *           WEEK, DAY, exact date, or a combination such as YEAR + MONTH.
  *
  * The measure is ordered by date:
- *   big number  = latest value
- *   change      = latest vs the one before it (% or pp)
- *   trend line  = the last N values, with a hover tooltip per point
+ *   big number  = latest value (or month-to-date total)
+ *   change      = latest vs the date before it, or vs the same day last
+ *                 month — single day or month to date (% or pp)
+ *   trend line  = the last N days/weeks/months, with a hover tooltip
  *
  * Appearance comes from the Format dialog (configure.html) and is stored in
  * the workbook through tableau.extensions.settings.
@@ -202,6 +203,29 @@
     return NaN;
   }
 
+  /**
+   * A real calendar date for a cell, or null for date parts (YEAR 2026,
+   * "May", "Q2"). Returned as { y, m (0-11), d, t: UTC ms at midnight }.
+   */
+  function toDay (cell) {
+    if (!cell) return null;
+    var v = cell.nativeValue != null ? cell.nativeValue : cell.value;
+    var y, m, d;
+    if (v instanceof Date) {
+      if (isNaN(v.getTime())) return null;
+      // Tableau sends dates as UTC midnight; anything else is a local time.
+      var utc = v.getUTCHours() === 0 && v.getUTCMinutes() === 0 && v.getUTCSeconds() === 0;
+      y = utc ? v.getUTCFullYear() : v.getFullYear();
+      m = utc ? v.getUTCMonth() : v.getMonth();
+      d = utc ? v.getUTCDate() : v.getDate();
+    } else {
+      var iso = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(v == null ? '' : v).trim());
+      if (!iso) return null;
+      y = +iso[1]; m = +iso[2] - 1; d = +iso[3];
+    }
+    return { y: y, m: m, d: d, t: Date.UTC(y, m, d) };
+  }
+
   function compareKeys (a, b) {
     for (var i = 0; i < a.key.length; i++) {
       var x = a.key[i];
@@ -236,6 +260,19 @@
 
     var label = cleanName(cValue ? cValue.fieldName : fields.value[0].name);
 
+    // The finest date column that holds real dates drives the calendar logic
+    // (Points shown window, same day last month, month to date).
+    var cDay = null;
+    for (var ci = cDates.length - 1; ci >= 0 && !cDay; ci--) {
+      for (var ri = 0; ri < rows.length; ri++) {
+        var cellD = rows[ri][cDates[ci].index];
+        var raw = cellD && (cellD.nativeValue != null ? cellD.nativeValue : cellD.value);
+        if (raw == null || raw === '%null%' || raw === '') continue;
+        if (toDay(cellD)) cDay = cDates[ci];
+        break;
+      }
+    }
+
     if (!cValue) {
       return { label: label, points: [], hasDate: !!fields.date.length, dateIssue: 'Couldn’t find the measure in the sheet data.' };
     }
@@ -250,6 +287,7 @@
         v: v,
         fv: cell.formattedValue,
         key: cDates.map(function (c) { return ordinal(r[c.index]); }),
+        day: cDay ? toDay(r[cDay.index]) : null,
         label: cDates.map(function (c) { return r[c.index].formattedValue; }).join(' · ')
       });
     });
@@ -283,7 +321,15 @@
       issue = 'Only one date in the data, so there’s no trend or change to show yet.';
     }
 
-    return { label: label, points: pts, hasDate: cDates.length > 0, dateIssue: issue };
+    var calendar = !!cDay && pts.length > 0 && pts.every(function (p) { return p.day; });
+    return {
+      label: label,
+      points: pts,
+      hasDate: cDates.length > 0,
+      dateIssue: issue,
+      calendar: calendar, // every point has a real date
+      grain: calendar ? granularity(cDay.fieldName) : 0
+    };
   }
 
   function cleanName (name) {
@@ -319,6 +365,92 @@
     };
   }
 
+  function aggregate (vals) {
+    var sum = vals.reduce(function (s, v) { return s + v; }, 0);
+    return cfg.change.mtdAgg === 'avg' ? sum / vals.length : sum;
+  }
+
+  function sameMonth (a, b) { return a && b && a.y === b.y && a.m === b.m; }
+
+  /** Month-to-date value at point `idx`: day 1 of its month through that date. */
+  function mtdValue (idx) {
+    var all = lastData.points;
+    var p = all[idx];
+    if (!p.day) return p.v;
+    var vals = [];
+    for (var j = idx; j >= 0 && sameMonth(all[j].day, p.day); j--) vals.push(all[j].v);
+    return aggregate(vals);
+  }
+
+  /** The same day one month earlier, clamped to that month's last day (31 Mar → 28/29 Feb). */
+  function sameDayLastMonth (day) {
+    var y = day.m === 0 ? day.y - 1 : day.y;
+    var m = day.m === 0 ? 11 : day.m - 1;
+    var last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    var d = Math.min(day.d, last);
+    return { y: y, m: m, d: d, t: Date.UTC(y, m, d) };
+  }
+
+  function isMtd () { return cfg.change.period === 'mtd' && lastData && lastData.calendar; }
+
+  /**
+   * What point `idx` is compared with, per the % Change settings:
+   *   compareTo  previous   the date point before it
+   *              prevMonth  the same day last month
+   *   period     day        single-day values
+   *              mtd        month-to-date values (needs real dates)
+   * → { cur, base, baseLabel } or null when there's nothing to compare with.
+   */
+  function comparison (idx) {
+    var c = cfg.change;
+    var all = lastData.points;
+    var p = all[idx];
+    if (!p) return null;
+    var mtd = c.period === 'mtd';
+    if ((mtd || c.compareTo === 'prevMonth') && !p.day) return null;
+    var cur = mtd ? mtdValue(idx) : p.v;
+
+    if (c.compareTo === 'prevMonth') {
+      var tgt = sameDayLastMonth(p.day);
+      if (mtd) {
+        var vals = [];
+        var lastLabel = '';
+        for (var j = idx - 1; j >= 0; j--) {
+          var q = all[j];
+          if (!q.day || q.day.t < Date.UTC(tgt.y, tgt.m, 1)) break;
+          if (sameMonth(q.day, tgt) && q.day.d <= tgt.d) {
+            vals.push(q.v);
+            if (!lastLabel) lastLabel = q.label;
+          }
+        }
+        if (!vals.length) return null;
+        return { cur: cur, base: aggregate(vals), baseLabel: lastLabel + ' MTD' };
+      }
+      for (var k = idx - 1; k >= 0; k--) {
+        if (!all[k].day || all[k].day.t < tgt.t) break;
+        if (all[k].day.t === tgt.t) return { cur: cur, base: all[k].v, baseLabel: all[k].label };
+      }
+      return null;
+    }
+
+    if (idx < 1) return null;
+    var prev = all[idx - 1];
+    return {
+      cur: cur,
+      base: mtd ? mtdValue(idx - 1) : prev.v,
+      baseLabel: (prev.label || 'previous') + (mtd ? ' MTD' : '')
+    };
+  }
+
+  /** Words for the change text: "than <this>". */
+  function comparisonWord () {
+    var c = cfg.change;
+    var mtd = isMtd();
+    if (c.compareTo === 'prevMonth') return mtd ? 'last month MTD' : 'same day last month';
+    var word = (cfg.bottom.periodWord || '').trim() || 'period';
+    return 'previous ' + word + (mtd ? ' MTD' : '');
+  }
+
   var currentScale = '';
 
   /** Formats a value the way the big number is formatted (without unit). */
@@ -349,6 +481,15 @@
     return KpiCardConfig.formatScaled(v, scale, decimals == null ? n.decimals : decimals, forceScale);
   }
 
+  /** Full number for the tooltip: no K/M/B, thousands separators, the big number's decimals. */
+  function formatFull (v, isDiff) {
+    var n = cfg.number;
+    var text = isPercentFormat()
+      ? KpiCardConfig.fixed(percentValue(v), n.decimals) + (isDiff ? ' pp' : '%')
+      : KpiCardConfig.fixed(v, n.decimals);
+    return text.replace(/^-(?=[0.,]+(?:[^\d.,]|$))/, ''); // no "-0.00"
+  }
+
   function withUnit (text) {
     var u = cfg.number.unit;
     if (!u) return text;
@@ -366,16 +507,17 @@
       return;
     }
 
-    var latest = pts[pts.length - 1];
-    var prev = pts.length > 1 ? pts[pts.length - 2] : null;
+    var lastIdx = pts.length - 1;
+    var latest = pts[lastIdx];
+    var cmp = comparison(lastIdx);
 
     el.card.classList.remove('is-empty');
     hideTooltip();
     paintCard();
     paintHeader();
-    paintNumber(latest);
-    paintChange(latest, prev);
-    paintBottom(latest, prev);
+    paintNumber(latest, lastIdx);
+    paintChange(cmp);
+    paintBottom(cmp);
     layout();
   }
 
@@ -417,13 +559,20 @@
       }
     }
 
-    applyFont(el.title, cfg.title);
-    el.title.textContent = cfg.title.text || lastData.label;
+    var t = cfg.title;
+    applyFont(el.title, t);
+    el.title.textContent = t.text || lastData.label;
+    el.title.style.textAlign = t.align || 'left';
+    el.title.style.display = t.show === false ? 'none' : '';
 
+    // An empty or hidden explanation still takes up its line (when "Keep
+    // space" is on), so the big numbers of cards side by side line up.
     var ex = cfg.explanation;
+    var hasText = ex.show && !!String(ex.text || '').trim();
     applyFont(el.explanation, ex);
-    el.explanation.textContent = ex.text;
-    el.explanation.style.display = ex.show && ex.text ? '' : 'none';
+    el.explanation.style.textAlign = t.align || 'left';
+    el.explanation.textContent = hasText ? ex.text : '\u00A0';
+    el.explanation.style.display = hasText || ex.reserveSpace ? '' : 'none';
     updateIconSpan();
   }
 
@@ -466,13 +615,22 @@
     head.classList.toggle('icon-span', hasExplanation && iconBoxH > titleH * 1.5);
   }
 
-  function paintNumber (latest) {
+  /** Value the big number shows: the latest date, or month to date. */
+  function bigValue (idx) {
+    var p = lastData.points[idx];
+    if (isMtd() && cfg.change.mtdNumber) return { v: mtdValue(idx), fv: null };
+    return { v: p.v, fv: p.fv };
+  }
+
+  function paintNumber (latest, idx) {
     var n = cfg.number;
+    var big = bigValue(idx);
     applyFont(el.number, n);
+    el.number.style.display = n.show === false ? 'none' : '';
     currentScale = isPercentFormat()
-      ? (n.scale === 'percentDynamic' ? KpiCardConfig.pickScale(percentValue(latest.v), 'dynamic') : '')
-      : KpiCardConfig.pickScale(latest.v, n.scale === 'workbook' ? 'dynamic' : n.scale);
-    el.value.textContent = formatValue(latest.v, latest.fv);
+      ? (n.scale === 'percentDynamic' ? KpiCardConfig.pickScale(percentValue(big.v), 'dynamic') : '')
+      : KpiCardConfig.pickScale(big.v, n.scale === 'workbook' ? 'dynamic' : n.scale);
+    el.value.textContent = formatValue(big.v, big.fv);
     el.value.style.fontSize = n.size + 'px';
 
     var unitEl = n.unitPosition === 'prefix' ? el.unitPre : el.unitPost;
@@ -482,9 +640,10 @@
     [el.unitPre, el.unitPost].forEach(function (u) { u.style.fontSize = n.unitSize + 'px'; });
   }
 
-  function paintChange (latest, prev) {
+  function paintChange (cmp) {
     var c = cfg.change;
-    var ch = c.show && prev ? change(latest.v, prev.v) : null;
+    var ch = c.show && cmp ? change(cmp.cur, cmp.base) : null;
+    el.change.title = cmp ? 'vs ' + cmp.baseLabel : '';
     if (!ch) { el.change.hidden = true; return; }
     applyFont(el.change, { font: c.font, size: c.size, weight: c.weight, italic: false, color: ch.color });
     el.changeArrow.innerHTML = ARROWS[ch.dir];
@@ -492,7 +651,7 @@
     el.change.hidden = false;
   }
 
-  function paintBottom (latest, prev) {
+  function paintBottom (cmp) {
     var b = cfg.bottom;
     var mode = b.mode;
     el.bottom.className = 'bottom is-' + mode;
@@ -514,11 +673,11 @@
       var n = cfg.number;
       var ex = cfg.explanation;
       applyFont(el.bottomText, { font: ex.font, size: ex.size, weight: 400, italic: false, color: n.color });
-      if (!prev) {
+      if (!cmp) {
         el.bottomText.textContent = '';
-        el.bottom.title = lastData.dateIssue;
+        el.bottom.title = lastData.dateIssue || 'Nothing to compare with.';
       } else {
-        var diff = latest.v - prev.v;
+        var diff = cmp.cur - cmp.base;
         var abs = formatValue(Math.abs(diff), null, b.textDecimals, currentScale, true);
         // "Same as previous" only when the two values are exactly equal.
         var zero = diff === 0;
@@ -529,20 +688,47 @@
             ? formatValue(Math.abs(diff), null, b.textDecimals, null, true)
             : KpiCardConfig.formatScaled(Math.abs(diff), 'dynamic', b.textDecimals);
         }
-        var word = (b.periodWord || '').trim() || 'period';
+        var word = comparisonWord();
         el.bottomText.textContent = zero
-          ? 'Same as previous ' + word
-          : (b.showSign ? (diff < 0 ? '-' : '+') : '') + abs + (diff < 0 ? ' less' : ' more') + ' than previous ' + word;
+          ? 'Same as ' + word
+          : (b.showSign ? (diff < 0 ? '-' : '+') : '') + abs + (diff < 0 ? ' less' : ' more') + ' than ' + word;
       }
     }
   }
 
-  /** The last N points (N = "Points shown"; 0 = all), with their index in the full series. */
+  /**
+   * Points inside the "Points shown" window, with their index in the full
+   * series. With real dates the window is calendar-based at the Date level:
+   * 30 on a day-level date = the latest date and the 29 days before it, so
+   * gaps in the data never pull in older dates. Date parts (YEAR + MONTH as
+   * numbers, "May", ...) fall back to the last N points. 0 = all.
+   */
   function windowed () {
     var all = lastData.points;
-    var n = Number(cfg.bottom.points);
-    var start = n > 0 ? Math.max(0, all.length - n) : 0;
+    var n = Math.floor(Number(cfg.bottom.points));
+    var start = 0;
+    if (n > 0 && all.length) {
+      if (lastData.calendar) {
+        var cutoff = windowStart(all[all.length - 1].day, n, lastData.grain);
+        start = all.length - 1;
+        while (start > 0 && all[start - 1].day.t >= cutoff) start--;
+      } else {
+        start = Math.max(0, all.length - n);
+      }
+    }
     return all.slice(start).map(function (p, k) { return { p: p, idx: start + k }; });
+  }
+
+  /** First date (UTC ms) inside an N-unit window ending at `day`. */
+  function windowStart (day, n, grain) {
+    var k = n - 1;
+    switch (grain) {
+      case 1: return Date.UTC(day.y - k, 0, 1);              // years
+      case 2: return Date.UTC(day.y, day.m - 3 * k - (day.m % 3), 1); // quarters
+      case 3: return Date.UTC(day.y, day.m - k, 1);          // months
+      case 4: return Date.UTC(day.y, day.m, day.d - 7 * k);  // weeks
+      default: return Date.UTC(day.y, day.m, day.d - k);     // days (and finer)
+    }
   }
 
   /** Area + line, no axes, gridlines or labels. Points are evenly spaced. */
@@ -645,20 +831,22 @@
 
     var all = lastData.points;
     var p = all[best.idx];
-    var prev = best.idx > 0 ? all[best.idx - 1] : null;
-    var ch = prev ? change(p.v, prev.v) : null;
+    var cmp = comparison(best.idx);
+    var ch = cmp ? change(cmp.cur, cmp.base) : null;
 
+    // Full numbers (no K/M/B) in the tooltip.
     var html = '';
     if (p.label) html += '<div class="tt-date">' + esc(p.label) + '</div>';
-    html += '<div class="tt-value">' + esc(withUnit(formatValue(p.v, p.fv))) + '</div>';
+    html += '<div class="tt-value">' + esc(withUnit(formatFull(p.v))) + '</div>';
+    if (isMtd()) html += '<div class="tt-mtd">MTD ' + esc(withUnit(formatFull(mtdValue(best.idx)))) + '</div>';
     if (ch) {
-      var absDiff = withUnit(formatValue(Math.abs(ch.diff), null, null, null, true));
+      var absDiff = withUnit(formatFull(Math.abs(ch.diff), true));
       html += '<div class="tt-change" style="color:' + ch.color + '">' +
         '<span class="tt-arrow">' + ARROWS[ch.dir] + '</span>' + esc(ch.text) +
         ' <span class="tt-abs">(' + (ch.diff < 0 ? '-' : ch.diff > 0 ? '+' : '') + esc(absDiff) + ')</span></div>' +
-        '<div class="tt-note">vs ' + esc(prev.label || 'previous') + '</div>';
-    } else if (!prev) {
-      html += '<div class="tt-note">First date in the data</div>';
+        '<div class="tt-note">vs ' + esc(cmp.baseLabel) + ' (' + esc(withUnit(formatFull(cmp.base))) + ')</div>';
+    } else {
+      html += '<div class="tt-note">' + (best.idx === 0 ? 'First date in the data' : 'No value to compare with') + '</div>';
     }
 
     var tt = el.tooltip;
@@ -709,7 +897,8 @@
     // Shrink the number row if it would overflow the card width.
     if (n.shrinkToFit) {
       var avail = el.metricRow.clientWidth;
-      var need = el.number.scrollWidth + (el.change.hidden ? 0 : 10 + el.change.scrollWidth);
+      var numW = cfg.number.show === false ? 0 : el.number.scrollWidth;
+      var need = numW + (el.change.hidden ? 0 : 10 + el.change.scrollWidth);
       if (avail > 0 && need > avail) {
         var k = Math.max(0.35, avail / need * 0.98);
         el.value.style.fontSize = (n.size * k) + 'px';
@@ -746,5 +935,5 @@
     el.hint.innerHTML = html;
   }
 
-  window.KpiCard = { init: init, _ordinal: ordinal };
+  window.KpiCard = { init: init, _ordinal: ordinal, _toDay: toDay, _sameDayLastMonth: sameDayLastMonth };
 })();
