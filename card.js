@@ -365,21 +365,22 @@
     };
   }
 
-  function aggregate (vals) {
+  /** Rolls days up into one value: `how` = sum | avg (defaults to the % Change setting). */
+  function aggregate (vals, how) {
     var sum = vals.reduce(function (s, v) { return s + v; }, 0);
-    return cfg.change.mtdAgg === 'avg' ? sum / vals.length : sum;
+    return (how || cfg.change.mtdAgg) === 'avg' ? sum / vals.length : sum;
   }
 
   function sameMonth (a, b) { return a && b && a.y === b.y && a.m === b.m; }
 
   /** Month-to-date value at point `idx`: day 1 of its month through that date. */
-  function mtdValue (idx) {
+  function mtdValue (idx, how) {
     var all = lastData.points;
     var p = all[idx];
     if (!p.day) return p.v;
     var vals = [];
     for (var j = idx; j >= 0 && sameMonth(all[j].day, p.day); j--) vals.push(all[j].v);
-    return aggregate(vals);
+    return aggregate(vals, how);
   }
 
   /** The same day one month earlier, clamped to that month's last day (31 Mar → 28/29 Feb). */
@@ -392,6 +393,9 @@
   }
 
   function isMtd () { return cfg.change.period === 'mtd' && lastData && lastData.calendar; }
+
+  /** Big number set to month to date (Big number tab), and the data has real dates. */
+  function isNumberMtd () { return cfg.number.period === 'mtd' && lastData && lastData.calendar; }
 
   /**
    * What point `idx` is compared with, per the % Change settings:
@@ -615,10 +619,10 @@
     head.classList.toggle('icon-span', hasExplanation && iconBoxH > titleH * 1.5);
   }
 
-  /** Value the big number shows: the latest date, or month to date. */
+  /** Value the big number shows: the latest date, or month to date (Big number tab only). */
   function bigValue (idx) {
     var p = lastData.points[idx];
-    if (isMtd() && cfg.change.mtdNumber) return { v: mtdValue(idx), fv: null };
+    if (isNumberMtd()) return { v: mtdValue(idx, cfg.number.mtdAgg), fv: null };
     return { v: p.v, fv: p.fv };
   }
 
@@ -838,7 +842,10 @@
     var html = '';
     if (p.label) html += '<div class="tt-date">' + esc(p.label) + '</div>';
     html += '<div class="tt-value">' + esc(withUnit(formatFull(p.v))) + '</div>';
-    if (isMtd()) html += '<div class="tt-mtd">MTD ' + esc(withUnit(formatFull(mtdValue(best.idx)))) + '</div>';
+    if (isNumberMtd() || isMtd()) {
+      var how = isNumberMtd() ? cfg.number.mtdAgg : cfg.change.mtdAgg;
+      html += '<div class="tt-mtd">MTD ' + esc(withUnit(formatFull(mtdValue(best.idx, how)))) + '</div>';
+    }
     if (ch) {
       var absDiff = withUnit(formatFull(Math.abs(ch.diff), true));
       html += '<div class="tt-change" style="color:' + ch.color + '">' +

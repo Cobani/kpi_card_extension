@@ -284,6 +284,11 @@
   function buildNumberTab (p) {
     var g1 = group(p, 'Value');
     g1.appendChild(checkboxRow('Show big number', 'number.show'));
+    g1.appendChild(segRow('Value', 'number.period', [['day', 'Single day'], ['mtd', 'Month to date']], function () { buildTabs(); }));
+    if (cfg.number.period === 'mtd') {
+      g1.appendChild(selectRow('MTD roll-up', 'number.mtdAgg', [['sum', 'Sum of days'], ['avg', 'Average of days']]));
+    }
+    g1.appendChild(h('div', { className: 'help', textContent: 'Single day: the value at the latest date. Month to date: day 1 of the latest month through the latest date (needs a real date on the Date tile). Independent of the % Change period.' }));
     var fmtRow = selectRow('Number format', 'number.scale', [
       ['dynamic', 'Dynamic (K / M / B)'], ['K', 'Thousands (K)'], ['M', 'Millions (M)'],
       ['B', 'Billions (B)'], ['none', 'Full number'],
@@ -315,7 +320,6 @@
     g0.appendChild(segRow('Period', 'change.period', [['day', 'Single day'], ['mtd', 'Month to date']], function () { buildTabs(); }));
     if (cfg.change.period === 'mtd') {
       g0.appendChild(selectRow('MTD roll-up', 'change.mtdAgg', [['sum', 'Sum of days'], ['avg', 'Average of days']]));
-      g0.appendChild(checkboxRow('Big number shows MTD', 'change.mtdNumber'));
     }
     g0.appendChild(h('div', {
       className: 'help',

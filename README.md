@@ -32,7 +32,7 @@ Then in Tableau Desktop (2024.2+): on the Marks card, open the mark type dropdow
 | **Measure** | the metric | everything: big number, change, trend line |
 | **Date** | any date level — YEAR, QUARTER, MONTH, WEEK, DAY, exact date — or up to 4 combined (e.g. YEAR + MONTH) | ordering by date |
 
-- **Big number** = the measure's value at the latest date (or month to date, when the change uses MTD).
+- **Big number** = the measure's value at the latest date, or month to date (Big number tab → Value; independent of the % Change period).
 - **% / pp change** = latest date vs the date before it, or vs the same day last month — as single days or month to date.
 - **Trend line** = only the last *N* days / weeks / months (30 by default) at the Date field's level, counted on the calendar, so gaps never pull in older dates. Hover a point for its date, the full (unabbreviated) value, and its change.
 
@@ -50,8 +50,8 @@ Figma defaults for that tab.
 | --- | --- |
 | Icon | show/hide · **78 built-in icons**: 47 icons from the Figma page *Custom Icons & Assets* (onboarding, chart, dashboard, logos, other) plus basic shapes and outline icons · **Tableau shapes** (palette picker) · upload PNG/SVG/JPG/GIF · **size** 12–96 px on the longer side (default 24, as in Figma). Larger icons sit beside both the title and the explanation. |
 | Title & text | title show/hide, text, **alignment** (left / center / right), font, size, weight, colour, italic · explanation on/off, **keep space when empty** (on by default, so big numbers line up across cards), text and the same formatting |
-| Big number | show/hide · K / M / B / Dynamic / full / **Percentage** / **Percentage dynamic (K/M/B %)** / workbook format · *Metric is a 0–1 ratio* for the percentage formats · decimals · unit text, position, size (default 24 px) · font, size, weight, colour · shrink-to-fit |
-| % Change | compare with **previous date** or **same day last month** · **single day** or **month to date** (sum or average of days; big number can show MTD) · on/off · % or pp · decimals · positive/negative/no-change colours · "Increase is good" (untick to swap the colours) · font |
+| Big number | show/hide · value: **single day** or **month to date** (sum or average of days) · K / M / B / Dynamic / full / **Percentage** / **Percentage dynamic (K/M/B %)** / workbook format · *Metric is a 0–1 ratio* for the percentage formats · decimals · unit text, position, size (default 24 px) · font, size, weight, colour · shrink-to-fit |
+| % Change | compare with **previous date** or **same day last month** · **single day** or **month to date** (sum or average of days) · on/off · % or pp · decimals · positive/negative/no-change colours · "Increase is good" (untick to swap the colours) · font |
 | Bottom | Trend line / Change text / Nothing · smooth (default) or straight line · chart colour, gradient strength, line width, points shown, tooltip on/off, height · period word, decimals, sign |
 | Card | padding · dashed right divider (as in Figma) · background colour and opacity (transparent by default) |
 

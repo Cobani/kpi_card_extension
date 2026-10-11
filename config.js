@@ -70,6 +70,8 @@
     },
     number: {
       show: true,
+      period: 'day', // day (latest date) | mtd (month to date) — independent of % Change
+      mtdAgg: 'sum', // sum | avg — how days are rolled up into the MTD big number
       font: 'Lato',
       size: 32,
       weight: 700,
@@ -88,7 +90,6 @@
       compareTo: 'previous', // previous (date point before) | prevMonth (same day last month)
       period: 'day', // day (single day) | mtd (month to date)
       mtdAgg: 'sum', // sum | avg — how days are rolled up into MTD
-      mtdNumber: true, // MTD: big number shows the MTD value too
       type: 'percent', // percent | pp
       decimals: 2,
       ppFromRatio: true, // pp: metric is a 0–1 ratio, multiply the difference by 100
