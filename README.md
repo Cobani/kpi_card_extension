@@ -125,7 +125,7 @@ If you edit the `.trex`, remove the extension and add it again, because Tableau 
 
 ### Fast reload (last-render cache)
 
-After each successful render the extension saves its result in the browser (localStorage, per Tableau Server and worksheet name). On the next load it draws that saved result as soon as Tableau reports the fields on the Marks card, then replaces it with the live data. The cache is only used when the same fields are encoded and it is less than 30 days old; it never leaves the browser, and clearing site data removes it.
+After each successful render the extension saves its result in the browser (localStorage, per Tableau Server and worksheet name). On the next load it draws that saved result right after the Tableau handshake, then replaces it with the live data. If the fields on the Marks card have changed since it was saved, the saved drawing is removed as soon as Tableau reports the fields. Saved results older than 30 days are ignored; it never leaves the browser, and clearing site data removes it.
 
 ### Load timings (debug)
 
