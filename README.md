@@ -118,7 +118,7 @@ The card background is transparent by default. To see the dashboard behind it:
 
 ## Deploying
 
-1. Vendor the API library into `lib/tableau.extensions.1.latest.js`. Otherwise the page loads it from jsDelivr.
+1. The Tableau Extensions API library is bundled in `lib/tableau.extensions.1.17.0.min.js` (no CDN). To upgrade, replace that file and update the `<script>` path in `index.html` and `configure.html`.
 2. Host the folder over HTTPS and change `<source-location><url>` in `kpiCard.trex`.
 3. Add the URL to the Tableau Server/Cloud extension safe list.
 
