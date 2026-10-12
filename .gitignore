@@ -1,0 +1,30 @@
+# Everything in this repo is published to GitHub Pages, so keep it to the files the extension serves.
+
+# macOS
+.DS_Store
+._*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Office temp/lock files (e.g. while a .pptx is open)
+~$*
+
+# Local dev server (serve.py)
+__pycache__/
+*.pyc
+
+# Node / tooling, if ever added
+node_modules/
+npm-debug.log*
+*.log
+
+# Secrets
+.env
+.env.*
+
+# Original font sources — the extension serves the WOFF2 files in fonts/
+fonts/*.ttf

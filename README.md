@@ -15,7 +15,7 @@ config.js        shared defaults (taken from Figma), formatting helpers, hand-dr
 icons.js         index of the Figma icons (loaded before config.js)
 icons/figma/     the Figma icons as 96 px transparent PNGs
 serve.py/.sh     local server on :8766, also lists Tableau shape palettes
-fonts/           Lato 2.0 (OFL), so the card matches Figma without Lato installed
+fonts/           Lato 2.0 (OFL), WOFF2 Latin subset (~38 KB per weight), so the card matches Figma without Lato installed
 ```
 
 ## Run it
