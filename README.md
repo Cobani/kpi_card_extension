@@ -126,3 +126,7 @@ If you edit the `.trex`, remove the extension and add it again, because Tableau 
 ### Fast reload (last-render cache)
 
 After each successful render the extension saves its result in the browser (localStorage, per Tableau Server and worksheet name). On the next load it draws that saved result as soon as Tableau reports the fields on the Marks card, then replaces it with the live data. The cache is only used when the same fields are encoded and it is less than 30 days old; it never leaves the browser, and clearing site data removes it.
+
+### Load timings (debug)
+
+To see where load time goes, open the dashboard, open DevTools, pick this extension's frame in the Console's context dropdown, run `localStorage.setItem('extDebug', '1')` and reload. Each load then prints a table of steps (page received, API library loaded, Tableau handshake, fields received, data received with row count, cached/live result drawn) plus every file with its download time and whether it came from the browser cache. Later refreshes (filters etc.) print one line each. `extTimings()` prints the table on demand; `localStorage.removeItem('extDebug')` turns it off. In the dev preview, add `?debug` to the URL instead.

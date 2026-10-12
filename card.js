@@ -49,7 +49,9 @@
     el.bottom.addEventListener('mousemove', onHover);
     el.bottom.addEventListener('mouseleave', hideTooltip);
 
+    if (window.ExtTiming) ExtTiming.mark('initializeAsync start');
     return tableau.extensions.initializeAsync({ configure: configure }).then(function () {
+      if (window.ExtTiming) ExtTiming.mark('initializeAsync done (Tableau handshake)');
       worksheet = tableau.extensions.worksheetContent.worksheet;
       cfg = KpiCardConfig.read();
 
@@ -162,11 +164,22 @@
   // ---------------------------------------------------------------------------
   async function refresh () {
     var token = ++renderToken;
+    var T = window.ExtTiming || { mark: function () {}, done: function () {}, line: function () {} };
+    var t0 = performance.now();
+    var first = token === 1;
+    var ms = function () { return Math.round(performance.now() - t0); };
+    if (first) T.mark('data requested');
     try {
       // Ask Tableau for the encodings and the data at the same time (one round trip instead of two).
       // A data error only matters when fields are encoded, so it is held until then.
-      var fieldsP = getEncodedFields();
-      var dataP = readSummaryData().catch(function (err) { return { error: err }; });
+      var tFields = 0;
+      var tData = 0;
+      var fieldsP = getEncodedFields().then(function (r) { tFields = ms(); if (first) T.mark('fields received (Marks card)'); return r; });
+      var dataP = readSummaryData().then(function (r) {
+        tData = ms();
+        if (first) T.mark('data received', (r && r.data ? r.data.length : 0) + ' rows');
+        return r;
+      }).catch(function (err) { tData = ms(); return { error: err }; });
 
       // First load: draw the last result from cache while the live data is on its way.
       if (!cacheTried) {
@@ -176,7 +189,7 @@
           var cached = readCache(f);
           if (!cached) return;
           lastData = cached;
-          try { paint(); } catch (e) { lastData = null; }
+          try { paint(); T.mark('cached result drawn'); } catch (e) { lastData = null; }
         }).catch(function () { /* handled below */ });
       }
 
@@ -187,6 +200,7 @@
       if (!fields.value.length) {
         lastData = null;
         clearCache();
+        if (first) { T.mark('no fields on the Marks card'); T.done('KPI Card load timings'); }
         showEmpty('Drag a measure onto the <b>Measure</b> tile and a date onto <b>Date</b>.');
         return;
       }
@@ -195,10 +209,19 @@
       if (table && table.error) throw table.error;
 
       lastData = extract(table, fields);
+      var tp = performance.now();
       paint();
+      if (first) {
+        T.mark('live result drawn', 'draw ' + Math.round(performance.now() - tp) + ' ms');
+        T.done('KPI Card load timings');
+      } else {
+        T.line('refresh #' + token + ': fields ' + tFields + ' ms, data ' + tData + ' ms (' +
+          (table.data ? table.data.length : 0) + ' rows), draw ' + Math.round(performance.now() - tp) + ' ms');
+      }
       writeCache(fields, lastData);
     } catch (err) {
       console.error('KPI Card render failed:', err);
+      if (first) { T.mark('render failed', err && err.message); T.done('KPI Card load timings'); }
       if (token === renderToken) showEmpty('Could not read the worksheet data. See the console for details.');
     }
   }

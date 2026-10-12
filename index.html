@@ -7,6 +7,7 @@
     <link rel="preload" href="./fonts/Lato-Regular.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="./fonts/fonts.css" />
     <link rel="stylesheet" href="./card.css" />
+    <script src="./timing.js"></script>
     <script src="./icons.js"></script>
     <script src="./config.js"></script>
     <script src="./card.js"></script>
@@ -48,6 +49,7 @@
       }
     </script>
     <script>
+      if (window.ExtTiming) ExtTiming.mark('Tableau API library loaded');
       if (window.tableau && window.tableau.extensions) {
         window.KpiCard.init();
       } else {
