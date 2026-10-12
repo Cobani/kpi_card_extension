@@ -11,9 +11,9 @@ kpiCard.trex    manifest: Marks card tiles + "Format Extension" button
 index.html       card page
 card.css/js      card layout, data reading, rendering
 configure.*      Format dialog (every option below)
-config.js        shared defaults (taken from Figma), formatting helpers, hand-drawn icons
-icons.js         index of the Figma icons (loaded before config.js)
-icons/figma/     the Figma icons as 96 px transparent PNGs
+config.js        shared defaults (taken from Figma), formatting helpers
+icons.js         the built-in icon list (loaded before config.js)
+icons/extension/ the Figma icons as 96 px transparent PNGs
 serve.py/.sh     local server on :8766, also lists Tableau shape palettes
 fonts/           Lato 2.0 (OFL), WOFF2 Latin subset (~38 KB per weight), so the card matches Figma without Lato installed
 ```
@@ -48,7 +48,7 @@ Figma defaults for that tab.
 
 | Tab | Options |
 | --- | --- |
-| Icon | show/hide · **78 built-in icons**: 47 icons from the Figma page *Custom Icons & Assets* (onboarding, chart, dashboard, logos, other) plus basic shapes and outline icons · **Tableau shapes** (palette picker) · upload PNG/SVG/JPG/GIF · **size** 12–96 px on the longer side (default 24, as in Figma). Larger icons sit beside both the title and the explanation. |
+| Icon | show/hide · **14 built-in icons** from the Figma page *Icons for Extension* (chart icons, others) · **Tableau shapes** (palette picker) · upload PNG/SVG/JPG/GIF · **size** 12–96 px on the longer side (default 24, as in Figma). Larger icons sit beside both the title and the explanation. |
 | Title & text | title show/hide, text, **alignment** (left / center / right), font, size, weight, colour, italic · explanation on/off, **keep space when empty** (on by default, so big numbers line up across cards), text and the same formatting |
 | Big number | show/hide · value: **single day** or **month to date** (sum or average of days) · K / M / B / Dynamic / full / **Percentage** / **Percentage dynamic (K/M/B %)** / workbook format · *Metric is a 0–1 ratio* for the percentage formats · decimals · unit text, position, size (default 24 px) · font, size, weight, colour · shrink-to-fit |
 | % Change | compare with **previous date** or **same day last month** · **single day** or **month to date** (sum or average of days) · on/off · % or pp · decimals · positive/negative/no-change colours · "Increase is good" (untick to swap the colours) · font |
@@ -60,12 +60,11 @@ with the workbook when you publish it.
 
 ### Built-in icons
 
-The Figma icons live in `icons/figma/` as 96 px transparent PNGs (4× their 24 px display size), listed in `icons.js`.
+The built-in icons come from the Figma page *Icons for Extension* (node `87:231`). They live in `icons/extension/` as 96 px transparent PNGs (4× their 24 px display size), listed in `icons.js`. An icon id that no longer exists falls back to the default (Bar chart).
 The workbook only stores the icon's id, so the `icons/` folder must be deployed with the extension.
 
-- **Single-colour Solis icons** follow **Icon color** (default `#EB644C`, i.e. the Figma colour).
-- **Logos, black/white variants and multi-colour icons** (toggles, warning) keep their own colours.
-- **To add an icon:** export it from Figma as a PNG, drop it in `icons/figma/`, and add a line to `icons.js` with its `id`, `label`, `group`, size, and `tint: true` if it should follow Icon color.
+- All of them are single-colour and follow **Icon color** (default `#EB644C`, i.e. the Figma colour).
+- **To add an icon:** export it from Figma as a PNG, drop it in `icons/extension/`, and add a line to `icons.js` with its `id`, `label`, `group`, size, and `tint: true` if it should follow Icon color.
 
 ### Tableau shapes
 

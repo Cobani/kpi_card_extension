@@ -156,7 +156,7 @@
         });
       };
       body.appendChild(colorRow('Icon color', 'icon.color', function () { refreshPreview(); fillGrid(); }));
-      body.appendChild(h('div', { className: 'help', textContent: 'Recolours single-colour icons. Logos and multi-colour icons keep their own colours.' }));
+      body.appendChild(h('div', { className: 'help', textContent: 'Recolours the built-in icons.' }));
       fillGrid();
       body.appendChild(gridWrap);
     } else if (ic.source === 'shape') {
