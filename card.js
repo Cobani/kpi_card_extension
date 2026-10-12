@@ -86,6 +86,78 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Last-render cache: on load, draw the previous result straight away (as soon
+  // as the encodings are known), then replace it with the live data. Stored in
+  // this browser only (localStorage), per worksheet, and only reused when the
+  // same fields are on the Marks card. Any storage error just skips the cache.
+  // ---------------------------------------------------------------------------
+  var CACHE_PREFIX = 'kpi-card:lastRender:v1:';
+  var CACHE_MAX_AGE = 30 * 24 * 3600 * 1000; // 30 days
+  var CACHE_MAX_CHARS = 400000;
+  var cacheTried = false;
+
+  function cacheKey () {
+    var host = '';
+    try { host = document.referrer ? new URL(document.referrer).origin : ''; } catch (e) { /* ignore */ }
+    return CACHE_PREFIX + host + '|' + (worksheet && worksheet.name);
+  }
+
+  /** Identifies what's on the Marks card, so a cache is only used for the same setup. */
+  function fieldsSig (fields) {
+    var out = {};
+    Object.keys(fields).sort().forEach(function (k) {
+      out[k] = fields[k].map(function (f) { return (f.id || '') + '|' + (f.name || ''); });
+    });
+    return JSON.stringify(out);
+  }
+
+  // JSON keeps Dates and NaN/Infinity intact.
+  function enc (k, v) {
+    var raw = this[k];
+    if (raw instanceof Date) return { $d: raw.getTime() };
+    if (typeof raw === 'number' && !isFinite(raw)) return { $n: String(raw) };
+    return v;
+  }
+  function dec (k, v) {
+    if (v && typeof v === 'object') {
+      if (Object.prototype.hasOwnProperty.call(v, '$d')) return new Date(v.$d);
+      if (Object.prototype.hasOwnProperty.call(v, '$n')) return Number(v.$n);
+    }
+    return v;
+  }
+
+  function readCache (fields) {
+    try {
+      var s = window.localStorage.getItem(cacheKey());
+      if (!s) return null;
+      var c = JSON.parse(s, dec);
+      if (!c || c.sig !== fieldsSig(fields) || !(Date.now() - c.t < CACHE_MAX_AGE)) return null;
+      return c.data;
+    } catch (e) { return null; }
+  }
+
+  function writeCache (fields, data) {
+    try {
+      var s = JSON.stringify({ sig: fieldsSig(fields), t: Date.now(), data: data }, enc);
+      if (s.length > CACHE_MAX_CHARS) return;
+      try {
+        window.localStorage.setItem(cacheKey(), s);
+      } catch (full) {
+        // Storage full: drop this extension's old entries and try once more.
+        for (var i = window.localStorage.length - 1; i >= 0; i--) {
+          var k = window.localStorage.key(i);
+          if (k && k.indexOf(CACHE_PREFIX) === 0) window.localStorage.removeItem(k);
+        }
+        window.localStorage.setItem(cacheKey(), s);
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function clearCache () {
+    try { window.localStorage.removeItem(cacheKey()); } catch (e) { /* ignore */ }
+  }
+
+  // ---------------------------------------------------------------------------
   // Data
   // ---------------------------------------------------------------------------
   async function refresh () {
@@ -93,15 +165,28 @@
     try {
       // Ask Tableau for the encodings and the data at the same time (one round trip instead of two).
       // A data error only matters when fields are encoded, so it is held until then.
-      var results = await Promise.all([
-        getEncodedFields(),
-        readSummaryData().catch(function (err) { return { error: err }; })
-      ]);
+      var fieldsP = getEncodedFields();
+      var dataP = readSummaryData().catch(function (err) { return { error: err }; });
+
+      // First load: draw the last result from cache while the live data is on its way.
+      if (!cacheTried) {
+        cacheTried = true;
+        fieldsP.then(function (f) {
+          if (token !== renderToken || lastData || (!f.value.length)) return;
+          var cached = readCache(f);
+          if (!cached) return;
+          lastData = cached;
+          try { paint(); } catch (e) { lastData = null; }
+        }).catch(function () { /* handled below */ });
+      }
+
+      var results = await Promise.all([fieldsP, dataP]);
       if (token !== renderToken) return;
       var fields = results[0];
 
       if (!fields.value.length) {
         lastData = null;
+        clearCache();
         showEmpty('Drag a measure onto the <b>Measure</b> tile and a date onto <b>Date</b>.');
         return;
       }
@@ -111,6 +196,7 @@
 
       lastData = extract(table, fields);
       paint();
+      writeCache(fields, lastData);
     } catch (err) {
       console.error('KPI Card render failed:', err);
       if (token === renderToken) showEmpty('Could not read the worksheet data. See the console for details.');

@@ -122,3 +122,7 @@ The card background is transparent by default. To see the dashboard behind it:
 3. Add the URL to the Tableau Server/Cloud extension safe list.
 
 If you edit the `.trex`, remove the extension and add it again, because Tableau reads the manifest only when the extension is added.
+
+### Fast reload (last-render cache)
+
+After each successful render the extension saves its result in the browser (localStorage, per Tableau Server and worksheet name). On the next load it draws that saved result as soon as Tableau reports the fields on the Marks card, then replaces it with the live data. The cache is only used when the same fields are encoded and it is less than 30 days old; it never leaves the browser, and clearing site data removes it.
