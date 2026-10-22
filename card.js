@@ -54,24 +54,36 @@
       if (window.ExtTiming) ExtTiming.mark('initializeAsync done (Tableau handshake)');
       worksheet = tableau.extensions.worksheetContent.worksheet;
       cfg = KpiCardConfig.read();
+      setTimeout(dropOldCache, 5000);
 
-      worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, refresh);
+      worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, requestRefresh);
       tableau.extensions.settings.addEventListener(
         tableau.TableauEventType.SettingsChanged,
         function () { cfg = KpiCardConfig.read(); paint(); }
       );
 
       if (window.ResizeObserver) {
-        new ResizeObserver(function () { layout(); }).observe(document.body);
+        new ResizeObserver(function () { layout(); if (deferred && isShown()) scheduleRefresh(); }).observe(document.body);
       } else {
         window.addEventListener('resize', layout);
       }
 
-      return refresh();
+      return scheduleRefresh();
     }).catch(function (err) {
       console.error('KPI Card failed to initialize:', err);
       showEmpty('Could not initialize the extension. See the console for details.');
     });
+  }
+
+  /** Removes results saved in this browser by older versions (the old last-render cache). */
+  function dropOldCache () {
+    try {
+      var ls = window.localStorage;
+      for (var i = ls.length - 1; i >= 0; i--) {
+        var k = ls.key(i);
+        if (k && k.indexOf('kpi-card:lastRender:') === 0) ls.removeItem(k);
+      }
+    } catch (e) { /* ignore */ }
   }
 
   /** Opens the Format dialog ("Format Extension" on the Marks card). */
@@ -88,76 +100,37 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Last-render cache: on load, draw the previous result straight away (right
-  // after the Tableau handshake), then replace it with the live data. Stored in
-  // this browser only (localStorage), per worksheet, and only reused when the
-  // same fields are on the Marks card. Any storage error just skips the cache.
+  // Refresh scheduling. Tableau runs extension requests one at a time, shared
+  // with the rest of the dashboard, so each card keeps at most one data request
+  // going, waits for a burst of filter changes to settle, and doesn't ask for
+  // data while its zone is hidden (it catches up when shown again).
   // ---------------------------------------------------------------------------
-  var CACHE_PREFIX = 'kpi-card:lastRender:v1:';
-  var CACHE_MAX_AGE = 30 * 24 * 3600 * 1000; // 30 days
-  var CACHE_MAX_CHARS = 400000;
-  var cacheTried = false;
+  var REFRESH_DELAY = 150; // ms to wait for a burst of changes to settle
+  var inFlight = false;
+  var rerun = false;
+  var deferred = false;
+  var refreshTimer = 0;
 
-  function cacheKey () {
-    var host = '';
-    try { host = document.referrer ? new URL(document.referrer).origin : ''; } catch (e) { /* ignore */ }
-    return CACHE_PREFIX + host + '|' + (worksheet && worksheet.name);
+  function isShown () {
+    return document.body.clientWidth > 0 && document.body.clientHeight > 0;
   }
 
-  /** Identifies what's on the Marks card, so a cache is only used for the same setup. */
-  function fieldsSig (fields) {
-    var out = {};
-    Object.keys(fields).sort().forEach(function (k) {
-      out[k] = fields[k].map(function (f) { return (f.id || '') + '|' + (f.name || ''); });
-    });
-    return JSON.stringify(out);
+  /** SummaryDataChanged: wait briefly, so several changes in a row fetch once. */
+  function requestRefresh () {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(scheduleRefresh, REFRESH_DELAY);
   }
 
-  // JSON keeps Dates and NaN/Infinity intact.
-  function enc (k, v) {
-    var raw = this[k];
-    if (raw instanceof Date) return { $d: raw.getTime() };
-    if (typeof raw === 'number' && !isFinite(raw)) return { $n: String(raw) };
-    return v;
-  }
-  function dec (k, v) {
-    if (v && typeof v === 'object') {
-      if (Object.prototype.hasOwnProperty.call(v, '$d')) return new Date(v.$d);
-      if (Object.prototype.hasOwnProperty.call(v, '$n')) return Number(v.$n);
+  function scheduleRefresh () {
+    if (!isShown()) { deferred = true; return Promise.resolve(); }
+    deferred = false;
+    if (inFlight) { rerun = true; return Promise.resolve(); }
+    inFlight = true;
+    return refresh().then(done, done);
+    function done () {
+      inFlight = false;
+      if (rerun) { rerun = false; scheduleRefresh(); }
     }
-    return v;
-  }
-
-  /** The saved result for this worksheet, if fresh: { sig, data }. */
-  function readCacheEntry () {
-    try {
-      var s = window.localStorage.getItem(cacheKey());
-      if (!s) return null;
-      var c = JSON.parse(s, dec);
-      if (!c || !c.data || !(Date.now() - c.t < CACHE_MAX_AGE)) return null;
-      return c;
-    } catch (e) { return null; }
-  }
-
-  function writeCache (fields, data) {
-    try {
-      var s = JSON.stringify({ sig: fieldsSig(fields), t: Date.now(), data: data }, enc);
-      if (s.length > CACHE_MAX_CHARS) return;
-      try {
-        window.localStorage.setItem(cacheKey(), s);
-      } catch (full) {
-        // Storage full: drop this extension's old entries and try once more.
-        for (var i = window.localStorage.length - 1; i >= 0; i--) {
-          var k = window.localStorage.key(i);
-          if (k && k.indexOf(CACHE_PREFIX) === 0) window.localStorage.removeItem(k);
-        }
-        window.localStorage.setItem(cacheKey(), s);
-      }
-    } catch (e) { /* ignore */ }
-  }
-
-  function clearCache () {
-    try { window.localStorage.removeItem(cacheKey()); } catch (e) { /* ignore */ }
   }
 
   // ---------------------------------------------------------------------------
@@ -182,33 +155,12 @@
         return r;
       }).catch(function (err) { tData = ms(); return { error: err }; });
 
-      // First load: draw the last result from cache right after the handshake,
-      // while Tableau is still working on the fields and the data. If the fields
-      // on the Marks card turn out to be different, the cached drawing is removed.
-      if (!cacheTried) {
-        cacheTried = true;
-        var entry = readCacheEntry();
-        if (entry && !lastData) {
-          lastData = entry.data;
-          try { paint(); T.mark('cached result drawn'); } catch (e) { lastData = null; entry = null; }
-        }
-        if (entry) {
-          fieldsP.then(function (f) {
-            if (token !== renderToken || lastData !== entry.data || entry.sig === fieldsSig(f)) return;
-            lastData = null;
-            showEmpty('');
-            T.mark('cached result removed (fields changed)');
-          }).catch(function () { /* handled below */ });
-        }
-      }
-
       var results = await Promise.all([fieldsP, dataP]);
       if (token !== renderToken) return;
       var fields = results[0];
 
       if (!fields.value.length) {
         lastData = null;
-        clearCache();
         if (first) { T.mark('no fields on the Marks card'); T.done('KPI Card load timings'); }
         showEmpty('Drag a measure onto the <b>Measure</b> tile and a date onto <b>Date</b>.');
         return;
@@ -227,7 +179,6 @@
         T.line('refresh #' + token + ': fields ' + tFields + ' ms, data ' + tData + ' ms (' +
           (table.data ? table.data.length : 0) + ' rows), draw ' + Math.round(performance.now() - tp) + ' ms');
       }
-      writeCache(fields, lastData);
     } catch (err) {
       console.error('KPI Card render failed:', err);
       if (first) { T.mark('render failed', err && err.message); T.done('KPI Card load timings'); }
@@ -401,19 +352,59 @@
       return { label: label, points: [], hasDate: !!fields.date.length, dateIssue: 'Couldn’t find the measure in the sheet data.' };
     }
 
+    // Many rows share the same date (extra detail on the sheet), so each
+    // distinct date is parsed once.
+    var memo = cDates.map(function () { return new Map(); });
+    var dayMemo = new Map();
+    var parsed = function (k, cell) {
+      var raw = cell ? (cell.nativeValue != null ? cell.nativeValue : cell.value) : null;
+      if (raw instanceof Date) raw = 'd' + raw.getTime();
+      else if (typeof raw === 'number') raw = 'n' + raw;
+      var id = String(raw) + '\u0001' + (cell ? cell.formattedValue : '');
+      var hit = memo[k].get(id);
+      if (!hit) { hit = { o: ordinal(cell), f: cell ? cell.formattedValue : undefined, id: id }; memo[k].set(id, hit); }
+      return hit;
+    };
+    var dayOf = function (cell) {
+      var raw = cell ? (cell.nativeValue != null ? cell.nativeValue : cell.value) : null;
+      if (raw instanceof Date) return toDay(cell);
+      var id = String(raw);
+      if (!dayMemo.has(id)) dayMemo.set(id, toDay(cell));
+      return dayMemo.get(id);
+    };
+
+    // Rows with the same dates are added up straight away (same result as
+    // merging them after the sort), so only one point per date gets sorted.
+    var byDate = new Map();
     var pts = [];
     rows.forEach(function (r, i) {
       var cell = r[cValue.index];
       var v = toNumber(cell);
       if (!isFinite(v)) return;
-      pts.push({
+      var key = new Array(cDates.length);
+      var lab = new Array(cDates.length);
+      var ids = new Array(cDates.length);
+      for (var k = 0; k < cDates.length; k++) {
+        var pc = parsed(k, r[cDates[k].index]);
+        key[k] = pc.o;
+        lab[k] = pc.f;
+        ids[k] = pc.id;
+      }
+      var gid = cDates.length && ids.indexOf(null) < 0 ? ids.join('') : null;
+      if (gid !== null) {
+        var prev = byDate.get(gid);
+        if (prev) { prev.v += v; prev.fv = null; return; }
+      }
+      var pt = {
         i: i,
         v: v,
         fv: cell.formattedValue,
-        key: cDates.map(function (c) { return ordinal(r[c.index]); }),
-        day: cDay ? toDay(r[cDay.index]) : null,
-        label: cDates.map(function (c) { return r[c.index].formattedValue; }).join(' · ')
-      });
+        key: key,
+        day: cDay ? dayOf(r[cDay.index]) : null,
+        label: lab.join(' · ')
+      };
+      if (gid !== null) byDate.set(gid, pt);
+      pts.push(pt);
     });
 
     if (cDates.length) {

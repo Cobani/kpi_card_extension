@@ -123,10 +123,17 @@ The card background is transparent by default. To see the dashboard behind it:
 
 If you edit the `.trex`, remove the extension and add it again, because Tableau reads the manifest only when the extension is added.
 
-### Fast reload (last-render cache)
+### Performance with many cards
 
-After each successful render the extension saves its result in the browser (localStorage, per Tableau Server and worksheet name). On the next load it draws that saved result right after the Tableau handshake, then replaces it with the live data. If the fields on the Marks card have changed since it was saved, the saved drawing is removed as soon as Tableau reports the fields. Saved results older than 30 days are ignored; it never leaves the browser, and clearing site data removes it.
+Tableau handles extension requests one at a time, shared with the rest of the dashboard, so the card keeps its requests to a minimum:
+
+- **One data request at a time.** When filters change, the card waits 150 ms for the changes to settle, keeps at most one data read going, and does one catch-up read at the end, instead of starting a full read on every change.
+- **Hidden cards wait.** A card in a hidden (zero-size) zone doesn't ask for data until it's shown.
+- **Fast processing.** Each distinct date is parsed once and rows with the same date are added up before sorting.
+- **No saved results.** The card always draws live data. Older versions saved their last result in the browser; that saved data is cleared automatically.
+
+The biggest remaining cost is data size: build each card's sheet at the date level, without extra fields on Detail, so Tableau sends one row per date.
 
 ### Load timings (debug)
 
-To see where load time goes, open the dashboard, open DevTools, pick this extension's frame in the Console's context dropdown, run `localStorage.setItem('extDebug', '1')` and reload. Each load then prints a table of steps (page received, API library loaded, Tableau handshake, fields received, data received with row count, cached/live result drawn) plus every file with its download time and whether it came from the browser cache. Later refreshes (filters etc.) print one line each. `extTimings()` prints the table on demand; `localStorage.removeItem('extDebug')` turns it off. In the dev preview, add `?debug` to the URL instead.
+To see where load time goes, open the dashboard, open DevTools, pick this extension's frame in the Console's context dropdown, run `localStorage.setItem('extDebug', '1')` and reload. Each load then prints a table of steps (page received, API library loaded, Tableau handshake, fields received, data received with row count, result drawn) plus every file with its download time and whether it came from the browser cache. Later refreshes (filters etc.) print one line each. `extTimings()` prints the table on demand; `localStorage.removeItem('extDebug')` turns it off. In the dev preview, add `?debug` to the URL instead.
