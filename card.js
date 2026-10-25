@@ -90,8 +90,8 @@
   function configure () {
     var url = window.location.href.split(/[?#]/)[0].replace(/[^/]*$/, '') + 'configure.html';
     var options = { width: 520, height: 720 };
-    if (tableau.DialogStyle && tableau.DialogStyle.Modeless) {
-      options.dialogStyle = tableau.DialogStyle.Modeless; // live preview behind it
+    if (tableau.DialogStyle && tableau.DialogStyle.Modal) {
+      options.dialogStyle = tableau.DialogStyle.Modal; // stays in front of Tableau until Done; the card behind it still updates live
     }
     return tableau.extensions.ui.displayDialogAsync(url, '', options).catch(function (err) {
       var closed = tableau.ErrorCodes && err && err.errorCode === tableau.ErrorCodes.DialogClosedByUser;
