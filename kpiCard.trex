@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
-  <worksheet-extension id="com.ilyascoban.vizext.kpicard" extension-version="2.0.0">
+  <worksheet-extension id="com.ilyascoban.vizext.kpicard" extension-version="2.1.0">
     <default-locale>en_US</default-locale>
     <name resource-id="name"/>
     <description>KPI card: latest value of a measure by date, % / pp change vs the previous date, and a trend line with tooltips.</description>

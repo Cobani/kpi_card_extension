@@ -114,6 +114,10 @@
       periodWord: 'period',
       showSign: true
     },
+    export: {
+      button: 'hover', // hover | always | never
+      fileName: '' // empty → the title
+    },
     card: {
       padding: 15, // Filter Icon Title Padding
       bgColor: '#FFFFFF',

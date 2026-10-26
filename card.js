@@ -46,6 +46,7 @@
         document.getElementById(id);
     });
 
+    ChartExport.attach(el.card, 'KPI Card');
     el.bottom.addEventListener('mousemove', onHover);
     el.bottom.addEventListener('mouseleave', hideTooltip);
 
@@ -170,6 +171,8 @@
       if (table && table.error) throw table.error;
 
       lastData = extract(table, fields);
+
+      ChartExport.setTable(table);
       var tp = performance.now();
       paint();
       if (first) {
@@ -619,6 +622,7 @@
   // Paint
   // ---------------------------------------------------------------------------
   function paint () {
+    if (cfg && window.ChartExport) ChartExport.refresh(cfg);
     if (!lastData || !cfg) return;
     var pts = lastData.points;
     if (!pts.length) {
